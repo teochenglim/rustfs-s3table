@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rustfs
+  labels:
+    app: rustfs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rustfs
+  template:
+    metadata:
+      labels:
+        app: rustfs
+    spec:
+      containers:
+        - name: rustfs
+          image: rustfs/rustfs:latest
+          args: ["/data"]
+          ports:
+            - name: s3-api
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          envFrom:
+            - secretRef:
+                name: rustfs-credentials
+          env:
+            - name: RUSTFS_ADDRESS
+              value: ":9000"
+            - name: RUSTFS_CONSOLE_ADDRESS
+              value: ":9001"
+            - name: RUSTFS_CONSOLE_ENABLE
+              value: "true"
+            - name: RUSTFS_OBS_LOGGER_LEVEL
+              value: "info"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: rustfs-data
